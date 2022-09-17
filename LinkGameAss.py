@@ -10,6 +10,7 @@ import operator
 
 import numpy as np
 import sys
+import argparse
 
 def save_im(image, name):
     # 创建存储路径
@@ -28,16 +29,103 @@ def save_im(image, name):
 class Game:
     # 初始化
     def __init__(self):
-        self.im2num_arr = []
+        self.im2num_arr = np.zeros((10, 14), dtype=np.int32)
+        self.im2num_arr_backup = np.zeros((10, 14), dtype=np.int32)
         self.imTypeInGame = [12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 34, 38, 42]
         self.isGetStep = False
+        self.candidateStepNum = 0
+        self.candidateStepArr = np.zeros((8, 5), dtype=np.int32)
 
-    # 找下一步解法
-    def findNextStep(self):
+    # 计算多边形周长
+    def calc(self):
+        z = 0
+        for i in range(1, 9):
+            for j in range(1, 13):
+                if self.im2num_arr[i][j] != 0:
+                    if self.im2num_arr[i-1][j] == 0:
+                        z += 1
+                    if self.im2num_arr[i+1][j] == 0:
+                        z += 1
+                    if self.im2num_arr[i][j-1] == 0:
+                        z += 1
+                    if self.im2num_arr[i][j+1] == 0:
+                        z += 1
+        return z
+
+    # 统计解法数量
+    def calcStepNum(self):
         xx = [4, 5, 3, 6, 2, 7, 1, 8]
         yy = [6, 7, 5, 8, 4, 9, 3, 10, 2, 11, 1, 12]
-        self.isGetStep = False
+        
+        z = 0
+        for x1 in xx:
+            for y1 in yy:
+                if self.im2num_arr[x1][y1] == 0:
+                    continue
+
+                for x2 in xx:
+                    for y2 in yy:
+                        # 跳过为0 或者同一个
+                        if self.im2num_arr[x2][y2] == 0 or (x1 == x2 and y1 == y2):
+                            continue
+
+                        if self.isReachable(x1, y1, x2, y2):  
+                            z += 1
+        return z  
+ 
+    # 筛选
+    def getBestStep(self):
+        for i in range(0, 10):
+            for j in range(0, 14):
+                self.im2num_arr_backup[i][j] = self.im2num_arr[i][j]
     
+        a = 0
+        b = 0
+        best = 0 
+        while a < self.candidateStepNum:
+            self.run(self.candidateStepArr[a][0], self.candidateStepArr[a][1], self.candidateStepArr[a][2], self.candidateStepArr[a][3], level)
+            #self.candidateStepArr[a][4] = self.calcStepNum()
+            self.candidateStepArr[a][4] = self.calc()
+            
+            if self.candidateStepArr[a][4] > best:
+                best = self.candidateStepArr[a][4]
+                b = a
+
+            for i in range(0, 10):
+                for j in range(0, 14):
+                    self.im2num_arr[i][j] = self.im2num_arr_backup[i][j]
+    
+            a += 1
+       
+        print(self.candidateStepArr)
+
+        return self.candidateStepArr[b][0], self.candidateStepArr[b][1], self.candidateStepArr[b][2], self.candidateStepArr[b][3]
+            
+    # 找下一步解法
+    def findNextStep(self, level):
+        self.findCandidateStepArr(level)
+        return self.getBestStep()
+
+    # 是否存在
+    def isExist(self, x1, y1, x2, y2):
+        a = 0
+           
+        while a < self.candidateStepNum:
+            if x1 == self.candidateStepArr[a][2] and y1 == self.candidateStepArr[a][3] and x2 == self.candidateStepArr[a][0] and y2 == self.candidateStepArr[a][1]:
+                return True
+
+            a += 1
+        return False    
+
+    # 找候选解法
+    def findCandidateStepArr(self, level):
+        xx = [4, 5, 3, 6, 2, 7, 1, 8]
+        yy = [6, 7, 5, 8, 4, 9, 3, 10, 2, 11, 1, 12]
+        
+        self.isGetStep = False
+        self.candidateStepNum = 0
+        self.candidateStepArr = np.zeros((8, 5), dtype=np.int32)
+
         for x1 in xx:
             for y1 in yy:
                 if self.im2num_arr[x1][y1] == 0:
@@ -51,10 +139,20 @@ class Game:
 
                         if self.isReachable(x1, y1, x2, y2):
                             self.isGetStep = True
-                            return x1, y1, x2, y2
 
-        return x1, y1, x2, y2
+                            if self.isExist(x1, y1, x2, y2):
+                                continue
 
+                            self.candidateStepArr[self.candidateStepNum][0] = x1
+                            self.candidateStepArr[self.candidateStepNum][1] = y1
+                            self.candidateStepArr[self.candidateStepNum][2] = x2
+                            self.candidateStepArr[self.candidateStepNum][3] = y2
+                            self.candidateStepArr[self.candidateStepNum][4] = 0
+                            
+                            self.candidateStepNum = self.candidateStepNum + 1
+                            if self.candidateStepNum == 8:
+                                return
+                                
     # 判断图标类型数量是否正确
     def imTypeIsRight(self, level, imType):
         print("level = {}, imType = {}".format(level, imType))
@@ -64,224 +162,131 @@ class Game:
 
     # 游戏内核运行
     def run(self, x1, y1, x2, y2, level):
-        if level == 1:
-            self.level1(x1, y1, x2, y2)
-        elif level == 2:
-            self.level2(x1, y1, x2, y2)
-        elif level == 3:
-            self.level3(x1, y1, x2, y2)
-        elif level == 4:
-            self.level4(x1, y1, x2, y2)
-        elif level == 5:
-            self.level5(x1, y1, x2, y2)    
-        elif level == 6:
-            self.level6(x1, y1, x2, y2)
-        elif level == 7:
-            self.level7(x1, y1, x2, y2) 
-        elif level == 8:
-            self.level8(x1, y1, x2, y2)
-        elif level == 9:
-            self.level9(x1, y1, x2, y2)
-        elif level == 10:
-            self.level10(x1, y1, x2, y2)                    
-
-    # 第一关
-    def level1(self, x1, y1, x2, y2):
-        # 设置矩阵值为0
         self.im2num_arr[x1][y1] = 0
         self.im2num_arr[x2][y2] = 0
 
-    # 第二关
-    def level2(self, x1, y1, x2, y2):
-        for x in range(x1, 0, -1):
-            self.im2num_arr[x][y1] = self.im2num_arr[x-1][y1]
+        if level == 11 or level == 13:
+            runtimes = 2
+        else:
+            runtimes = 1
 
-            # 判断第二个气泡是否移动，如果移动则坐标更新
-            if x - 1 == x2 and y1 == y2:
-                x2 = x
+        rt = 0
+        while rt < runtimes:        
+            for a in range(0, 2):
+                for x in range(1, 9):
+                    for y in range(1, 13):
+                        if self.im2num_arr[x][y] == 0:
+                            if level == 2:
+                                self.level02(x, y)
+                            elif level == 3:
+                                self.level03(x, y)
+                            elif level == 4:
+                                self.level04(x, y)
+                            elif level == 5:
+                                self.level05(x, y)    
+                            elif level == 6:
+                                self.level06(x, y)
+                            elif level == 7:
+                                self.level07(x, y) 
+                            elif level == 8:
+                                self.level08(x, y)
+                            elif level == 9:
+                                self.level09(x, y)
+                            elif level == 10:
+                                self.level10(x, y)   
+                            elif level == 11:
+                                if rt == 0:
+                                    self.level06(x, y)
+                                else:
+                                    self.level08(x, y)
+                            elif level == 12:
+                                self.level12(x, y)
+                            elif level == 13:
+                                if rt == 0:
+                                    self.level07(x, y)
+                                else:
+                                    self.level09(x, y)
+            rt += 1                                     
 
-        for x in range(x2, 0, -1):
-            self.im2num_arr[x][y2] = self.im2num_arr[x-1][y2]       
+    # 第二关 向下
+    def level02(self, x, y):
+        for z in range(x, 0, -1):
+            self.im2num_arr[z][y] = self.im2num_arr[z-1][y]
+
+    # 第三关 向左
+    def level03(self, x, y):
+        for z in range(y, 13):
+            self.im2num_arr[x][z] = self.im2num_arr[x][z+1]
+
+    # 第四关 向上
+    def level04(self, x, y):
+        for z in range(x, 9):
+            self.im2num_arr[z][y] = self.im2num_arr[z+1][y]    
+
+    # 第五关 向右
+    def level05(self, x, y):
+        for z in range(y, 0, -1):
+            self.im2num_arr[x][z] = self.im2num_arr[x][z-1] 
+
+    # 第六关 上下分离
+    def level06(self, x, y):
+        if x < 5:
+            for z in range(x, 4):
+                self.im2num_arr[z][y] = self.im2num_arr[z+1][y]
+            self.im2num_arr[4][y] = 0
+        else:
+            for z in range(x, 5, -1):
+                self.im2num_arr[z][y] = self.im2num_arr[z-1][y]
+            self.im2num_arr[5][y] = 0    
+
+    # 第七关 上下靠拢
+    def level07(self, x, y):
+        if x < 5:
+            for z in range(x, 0, -1):
+                self.im2num_arr[z][y] = self.im2num_arr[z-1][y]
+        else:
+            for z in range(x, 9):
+                self.im2num_arr[z][y] = self.im2num_arr[z+1][y]          
+
+    # 第八关 左右分离
+    def level08(self, x, y):
+        if y < 7:
+            for z in range(y, 6):
+                self.im2num_arr[x][z] = self.im2num_arr[x][z+1]
+            self.im2num_arr[x][6] = 0
+        else:
+            for z in range(y, 7, -1):
+                self.im2num_arr[x][z] = self.im2num_arr[x][z-1]
+            self.im2num_arr[x][7] = 0         
+
+    # 第九关 左右靠拢
+    def level09(self, x, y):
+        if y < 7:
+            for z in range(y, 0, -1):
+                self.im2num_arr[x][z] = self.im2num_arr[x][z-1]
+        else:
+            for z in range(y, 13):
+                self.im2num_arr[x][z] = self.im2num_arr[x][z+1]
+
+    # 第十关 横向错位
+    def level10(self, x, y):
+        if x < 5:
+            for z in range(y, 13):
+                self.im2num_arr[x][z] = self.im2num_arr[x][z+1]
+        else:
+            for z in range(y, 0, -1):
+                self.im2num_arr[x][z] = self.im2num_arr[x][z-1] 
     
-    # 第三关
-    def level3(self, x1, y1, x2, y2):
-        for y in range(y1, 13):
-            self.im2num_arr[x1][y] = self.im2num_arr[x1][y+1]
+    # 第十二关 纵向错位
+    def level12(self, x, y):
+        if y < 7:
+            for z in range(x, 9):
+                self.im2num_arr[z][y] = self.im2num_arr[z+1][y]
+        else:
+            for z in range(x, 0, -1):
+                self.im2num_arr[z][y] = self.im2num_arr[z-1][y] 
 
-            # 判断第二个气泡是否移动，如果移动则坐标更新
-            if y + 1 == y2 and x1 == x2:
-                y2 = y 
 
-        for y in range(y2, 13):
-            self.im2num_arr[x2][y] = self.im2num_arr[x2][y+1]   
-
-    # 第四关
-    def level4(self, x1, y1, x2, y2):
-        for x in range(x1, 9):
-            self.im2num_arr[x][y1] = self.im2num_arr[x+1][y1]
-
-            # 判断第二个气泡是否移动，如果移动则坐标更新
-            if x + 1 == x2 and y1 == y2:
-                x2 = x
-
-        for x in range(x2, 9):
-            self.im2num_arr[x][y2] = self.im2num_arr[x+1][y2]     
-
-    # 第五关
-    def level5(self, x1, y1, x2, y2):
-        for y in range(y1, 0, -1):
-            self.im2num_arr[x1][y] = self.im2num_arr[x1][y-1]
-
-            # 判断第二个气泡是否移动，如果移动则坐标更新
-            if y - 1 == y2 and x1 == x2:
-                y2 = y 
-
-        for y in range(y2, 0, -1):
-            self.im2num_arr[x2][y] = self.im2num_arr[x2][y-1]
-
-    # 第六关
-    def level6(self, x1, y1, x2, y2):
-        for x in range(x1, 4):
-            self.im2num_arr[x][y1] = self.im2num_arr[x+1][y1]
-
-            # 判断第二个气泡是否移动，如果移动则坐标更新
-            if x + 1 == x2 and y1 == y2:
-                x2 = x
-
-        if x1 < 5:
-            self.im2num_arr[4][y1] = 0                      
-
-        for x in range(x2, 4):
-            self.im2num_arr[x][y2] = self.im2num_arr[x+1][y2]
-
-        if x2 < 5:
-            self.im2num_arr[4][y2] = 0
-
-        ###
-        for x in range(x1, 5, -1):
-            self.im2num_arr[x][y1] = self.im2num_arr[x-1][y1]
-
-            # 判断第二个气泡是否移动，如果移动则坐标更新
-            if x - 1 == x2 and y1 == y2:
-                x2 = x
-        if x1 > 4:
-            self.im2num_arr[5][y1] = 0
-
-        for x in range(x2, 5, -1):
-            self.im2num_arr[x][y2] = self.im2num_arr[x-1][y2]
-
-        if x2 > 4:
-            self.im2num_arr[5][y2] = 0
-
-    # 第七关
-    def level7(self, x1, y1, x2, y2):
-        if x1 < 5:
-            for x in range(x1, 0, -1):
-                self.im2num_arr[x][y1] = self.im2num_arr[x-1][y1]
-
-                # 判断第二个气泡是否移动，如果移动则坐标更新
-                if x - 1 == x2 and y1 == y2:
-                    x2 = x
-        if x2 < 5:
-            for x in range(x2, 0, -1):
-                self.im2num_arr[x][y2] = self.im2num_arr[x-1][y2] 
-        
-        if x1 > 4:
-            for x in range(x1, 9):
-                self.im2num_arr[x][y1] = self.im2num_arr[x+1][y1]
-
-                # 判断第二个气泡是否移动，如果移动则坐标更新
-                if x + 1 == x2 and y1 == y2:
-                    x2 = x
-        if x2 > 4:
-            for x in range(x2, 9):
-                self.im2num_arr[x][y2] = self.im2num_arr[x+1][y2]          
-
-    # 第八关
-    def level8(self, x1, y1, x2, y2):
-        for y in range(y1, 6):
-            self.im2num_arr[x1][y] = self.im2num_arr[x1][y+1]
-
-            # 判断第二个气泡是否移动，如果移动则坐标更新
-            if y + 1 == y2 and x1 == x2:
-                y2 = y
-
-        if y1 < 7:
-            self.im2num_arr[x1][6] = 0          
-
-        for y in range(y2, 6):
-            self.im2num_arr[x2][y] = self.im2num_arr[x2][y+1]
-
-        if y2 < 7:
-            self.im2num_arr[x2][6] = 0    
-
-        ###
-        for y in range(y1, 7, -1):
-            self.im2num_arr[x1][y] = self.im2num_arr[x1][y-1]
-
-            # 判断第二个气泡是否移动，如果移动则坐标更新
-            if y - 1 == y2 and x1 == x2:
-                y2 = y 
-
-        if y1 > 6:
-            self.im2num_arr[x1][7] = 0
-
-        for y in range(y2, 7, -1):
-            self.im2num_arr[x2][y] = self.im2num_arr[x2][y-1]
-
-        if y2 > 6:
-            self.im2num_arr[x2][7] = 0
-
-    # 第九关
-    def level9(self, x1, y1, x2, y2):
-        if y1 < 7:
-            for y in range(y1, 0, -1):
-                self.im2num_arr[x1][y] = self.im2num_arr[x1][y-1]
-
-                # 判断第二个气泡是否移动，如果移动则坐标更新
-                if y - 1 == y2 and x1 == x2:
-                    y2 = y
-        if y2 < 7:
-            for y in range(y2, 0, -1):
-                self.im2num_arr[x2][y] = self.im2num_arr[x2][y-1] 
-        
-        if y1 > 6:
-            for y in range(y1, 13):
-                self.im2num_arr[x1][y] = self.im2num_arr[x1][y+1]
-
-                # 判断第二个气泡是否移动，如果移动则坐标更新
-                if y + 1 == y2 and x1 == x2:
-                    y2 = y
-        if y2 > 6:
-            for y in range(y2, 13):
-                self.im2num_arr[x2][y] = self.im2num_arr[x2][y+1]    
-
-    # 第十关
-    def level10(self, x1, y1, x2, y2):
-        if x1 < 5:
-            for y in range(y1, 13):
-                self.im2num_arr[x1][y] = self.im2num_arr[x1][y+1]
-
-                # 判断第二个气泡是否移动，如果移动则坐标更新
-                if y + 1 == y2 and x1 == x2:
-                    y2 = y 
-        if x2 < 5:
-            for y in range(y2, 13):
-                self.im2num_arr[x2][y] = self.im2num_arr[x2][y+1]  
-                 
-        if x1 > 4:
-            for y in range(y1, 0, -1):
-                self.im2num_arr[x1][y] = self.im2num_arr[x1][y-1]
-
-                # 判断第二个气泡是否移动，如果移动则坐标更新
-                if y - 1 == y2 and x1 == x2:
-                    y2 = y 
-        if x2 > 4:
-            for y in range(y2, 0, -1):
-                self.im2num_arr[x2][y] = self.im2num_arr[x2][y-1] 
-
-                        
-    
     # 是否为同行或同列且相连
     def isReachable(self, x1, y1, x2, y2):
         
@@ -371,9 +376,12 @@ class Game:
 
     # 判断矩阵是否全为0
     def isAllZero(self):
+        z = 0
         for i in range(1, 9):
             for j in range(1, 13):
                 if self.im2num_arr[i][j] != 0:
+                    z = z + 1
+                if z > 1:    
                     return False
 
         return True
@@ -398,6 +406,7 @@ class GameAssist:
         self.im_type_list = []
         self.im2num_type_lst = []
         self.imType = 0
+        self.imageNum = 0
 
         # 小图标宽高
         self.im_width = 0
@@ -416,18 +425,17 @@ class GameAssist:
 
         self.mouse = PyMouse()
 
-    # 锁定图标矩阵
-    def lockImage(self):
         # 获取分辨率
         hDC = win32gui.GetDC(0)
-        w = win32print.GetDeviceCaps(hDC, win32con.DESKTOPHORZRES)
-        h = win32print.GetDeviceCaps(hDC, win32con.DESKTOPVERTRES)
+        self.w = win32print.GetDeviceCaps(hDC, win32con.DESKTOPHORZRES)
+        self.h = win32print.GetDeviceCaps(hDC, win32con.DESKTOPVERTRES)
         
-        print("w = {}, h = {}".format(w, h))
+        print("w = {}, h = {}".format(self.w, self.h))
 
-        image = ImageGrab.grab((0, 0, w-1, h-1))
-
-        image = image.resize((w, h), Image.ANTIALIAS).convert("L")
+    # 锁定图标矩阵
+    def lockImage(self):
+        image = ImageGrab.grab((0, 0, self.w-1, self.h-1))
+        image = image.resize((self.w, self.h), Image.ANTIALIAS).convert("L")
 
         self.x0 = 0
         self.y0 = 0
@@ -476,7 +484,7 @@ class GameAssist:
 
         print("im_width = {}".format(self.im_width))
 
-        save_im(image1, 'all')
+        #save_im(image1, 'all')
 
         if self.x0 == 0 or self.y1 == 0 or self.x1 == 0 or self.y1 == 0:
             return False
@@ -503,8 +511,7 @@ class GameAssist:
                 im = image.crop((left, top, right, bottom))
                 image_list[x][y] = im
 
-                image1 = image_list[x][y].resize((20, 20), Image.ANTIALIAS).convert("L")
-                
+                #image1 = image_list[x][y].resize((20, 20), Image.ANTIALIAS).convert("L")
                 #save_im(image1, str(x).zfill(2)+str(y).zfill(2))
 
                 #print("top = {}, left = {}".format(top, left))
@@ -512,76 +519,43 @@ class GameAssist:
                 
         return image_list
 
+    # 获取图标库
+    def getImageType(self, game, image_list):
+        self.im_type_list = []
+        for i in range(len(image_list)):
+            for j in range(len(image_list[0])):
+                index = self.getIndex(image_list[i][j])
+                if index < 0:
+                    self.im_type_list.append(image_list[i][j])
+
+        return len(self.im_type_list)
+                    
+
     # 标识矩阵
     def image2num(self, game, image_list):
-        # 1、创建全零矩阵和空的一维数组
-        arr = np.zeros((10, 14), dtype=np.int32)
-        self.im_type_list = []
-
-        # 2、识别出不同的图片，将图片矩阵转换成数字矩阵
+        imageNum = 0
+        # 1、识别出不同的图片，将图片矩阵转换成数字矩阵
         for i in range(len(image_list)):
             for j in range(len(image_list[0])):
-                im = image_list[i][j]
+                index = self.getIndex(image_list[i][j])
 
-                # 验证当前图标是否已存入
-                index = self.getIndex(im)
-
-                # 不存在，则存入
-                if index < 0:
-                    self.im_type_list.append(im)
-                    arr[i+1][j+1] = len(self.im_type_list)
-                else:
-                    arr[i+1][j+1] = index + 1
-
-        print("图标数：", len(self.im_type_list))
-
-        #for i in range(len(self.im_type_list)):
-        #    save_im(self.im_type_list[i], str(i).zfill(2))
-
-        game.im2num_arr = arr
-        print(game.im2num_arr)
-
-        #self.analysis(game, image_list)
-
-        self.imType = len(self.im_type_list)
-
-
-    # 洗牌后重新识别
-    def image2num2(self, game, image_list):
-        imNum = 0
-        for i in range(len(image_list)):
-            for j in range(len(image_list[0])):
-                im = image_list[i][j]
-
-                # 验证当前图标是否已存入
-                index = self.getIndex(im)
                 if index < 0:
                     game.im2num_arr[i+1][j+1] = 0
                 else:
                     game.im2num_arr[i+1][j+1] = index + 1
-                    imNum = imNum + 1                    
+                    imageNum = imageNum + 1   
 
+
+        #for i in range(len(self.im_type_list)):
+        #    save_im(self.im_type_list[i], str(i).zfill(2))
+
+        #self.analysis(game, image_list)
+
+
+        print("当前图标数：{}".format(imageNum))        
         print(game.im2num_arr)
-        return imNum
 
-    def image2num3(self, game, image_list):
-        arr1 = np.zeros((10, 14), dtype=np.int32)
-        
-        imNum = 0
-        for i in range(len(image_list)):
-            for j in range(len(image_list[0])):
-                im = image_list[i][j]
-
-                # 验证当前图标是否已存入
-                index = self.getIndex(im)
-                if index < 0:
-                    arr1[i+1][j+1] = 0
-                else:
-                    arr1[i+1][j+1] = index + 1
-                    imNum = imNum + 1                    
-
-        print(arr1)
-        return imNum
+        return imageNum
         
     # 分析图像识别算法
     def analysis(self, game, image_list):
@@ -651,17 +625,26 @@ class GameAssist:
 
         p2_x = int(self.x0 + (y2 - 1)*self.im_width + (self.im_width / 2))
         p2_y = int(self.y0 + (x2 - 1)*self.im_width + (self.im_width / 2))
-
+        
         time.sleep(0.2)
         self.mouse.click(p1_x, p1_y)
         time.sleep(0.2)
         self.mouse.click(p2_x, p2_y)
-
+        
         print("消除：(%02d, %02d) (%02d, %02d)" % (x1, y1, x2, y2))
         # exit()
 
+    def resetMouse(self):
+        p3_x = int(self.x0 + (0 - 1)*self.im_width + (self.im_width / 2))
+        p3_y = int(self.y0 + (0 - 1)*self.im_width + (self.im_width / 2))
+        
+        time.sleep(0.2)
+        self.mouse.click(p3_x, p3_y)
+        time.sleep(0.5)
+
+
     # 程序入口、控制中心
-    def start(self, game, level):
+    def start(self, game, level, mode):
 
         # 1、锁定图标矩阵
         if not self.lockImage():
@@ -670,13 +653,17 @@ class GameAssist:
         # 2、先截取游戏区域大图，然后分切每个小图
         image_list = self.screenshot()
 
-        # 3、识别小图标，收集编号
-        self.image2num(game, image_list)
+        # 3、获取图标库
+        self.imType = self.getImageType(game, image_list)
+        print("图标数：", self.imType)
+
+        # 4、识别小图标，收集编号
+        self.imageNum = self.image2num(game, image_list)
 
         if game.imTypeIsRight(level, self.imType):
             print("start to play.")
         else:
-            self.analysis(game, image_list)
+            #self.analysis(game, image_list)
             print("error, end.")
             return False
         
@@ -684,58 +671,72 @@ class GameAssist:
         
         # 4、遍历查找可以相连的坐标
         while not game.isAllZero():
-            x1, y1, x2, y2 = game.findNextStep()
+            x1, y1, x2, y2 = game.findNextStep(level)
             if game.isGetStep:
                 self.clickAndSetZero(x1, y1, x2, y2)
-                step = step + 1
+                step = step + 2
+                print(str(step))
                 
-                if level < 11:
+                if mode == 'a':
                     game.run(x1, y1, x2, y2, level)
-                else:
-                    time.sleep(1)
-                    image_list = self.screenshot()
-                    self.image2num2(game, image_list)
-
-                    '''
-                if step % 8 == 0:
-                    time.sleep(1)
-                    image_list = self.screenshot()
                     print(game.im2num_arr)
-                    print("-------------------------------")
-                    imNum = self.image2num3(game, image_list)
-                    if step * 2 + imNum != 96:
-                        print("step = {}, imNum = {}".format(step, imNum))
-                        return False
-'''
+                    
+                    # 检查
+                    if step % 16 == 0:
+                        print("check")
+                        self.resetMouse()
 
-
+                        image_list = self.screenshot()
+                        self.imageNum = self.image2num(game, image_list)
+                        
+                        step = 96 - self.imageNum
+                elif mode == 'm':
+                    time.sleep(0.6)
+                    image_list = self.screenshot()
+                    self.imageNum = self.image2num(game, image_list)
+                    
             else:
+                # 洗牌
                 print("no step")
-                time.sleep(2)
+                self.resetMouse()
 
                 image_list = self.screenshot()
-                self.image2num2(game, image_list)
+                self.imageNum = self.image2num(game, image_list)
+                step = 96 - self.imageNum
 
         print("end")
         return True
 
 
 if __name__ == "__main__":
+    parse = argparse.ArgumentParser(prog='模式')
+    parse.add_argument('-m', dest = 'mode', type = str, help='模式')
+
+    result = parse.parse_args()
+    mode = result.mode
+
+    print(str(mode))
+    if mode != 'm' and mode != 'a': 
+        sys.exit()
+
     wdname = u'宠物连连看经典版2小游戏,在线玩,4399小游戏 - 360极速浏览器 13.5'
     
     game = Game()
     demo = GameAssist(wdname)
     
-    #level = int(input("请输入关数："))
+    #cmd = str(input("请输入命令："))
+
     level = 1 
 
     while 1:
-        print("level =", level)
+        #if level == 14 or cmd == 'q':
         if level == 14:
             print("game over.")
             sys.exit()
+ 
+        print("level = ", level)
 
-        if not demo.start(game, level):
+        if not demo.start(game, level, mode):
             print("game exit.")
             sys.exit()
 
@@ -744,4 +745,4 @@ if __name__ == "__main__":
         level = level + 1
         time.sleep(2)
 
-        #level = int(input("请输入关数："))
+        #cmd = str(input("请输入命令："))
