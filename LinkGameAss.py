@@ -2,9 +2,12 @@
 
 from pymouse import PyMouse
 from PIL import ImageGrab, Image
-import win32gui
+from win32.lib import win32con
+
+import win32gui, win32print
 import os, time
 import operator
+
 
 import numpy as np
 
@@ -44,17 +47,82 @@ class GameAssist:
         self.im2num_arr = []
 
         # 截图的左上角坐标和右下角坐标
-        self.screen_left_and_right_point = (360, 258, 1253, 853)
+        #self.screen_left_and_right_point = (360, 258, 1253, 853)
 
         # 小图标宽高
-        self.im_width = 74.41
+        #self.im_width = 74.41
+        self.im_width = 0
+
+        # 左上角坐标
+        self.x0 = 0
+        self.y0 = 0
+
+        # 右下角坐标
+        self.x1 = 0
+        self.y1 = 0 
 
         self.mouse = PyMouse()
 
-    
+    def lockImage(self):
+        # 获取分辨率
+        hDC = win32gui.GetDC(0)
+        w = win32print.GetDeviceCaps(hDC, win32con.DESKTOPHORZRES)
+        h = win32print.GetDeviceCaps(hDC, win32con.DESKTOPVERTRES)
+        
+        print("w = {}, h = {}".format(w, h))
+
+        image = ImageGrab.grab((0, 0, w-1, h-1))
+
+        image = image.resize((w, h), Image.ANTIALIAS).convert("L")
+
+        threshold = 250
+
+        table = []
+        for i in range(256):
+            if i < threshold:
+                table.append(0)
+            else:
+                table.append(1)
+
+        image1 = image.point(table, '1')
+
+        # 获取左上角坐标
+        for j in range(200, 300):
+            for i in range(300, 380):
+        
+                if image1.getpixel((i,j)) == 1:
+                    self.x0 = i - 2
+                    self.y0 = j - 2
+                    print("x = {}, y = {}".format(i, j))
+                    break
+            else:
+                continue
+            break
+
+        # 获取右下角坐标
+        for j in range(900, 800, -1):
+            for i in range(1300, 1200, -1):
+            
+                if image1.getpixel((i,j)) == 1:
+                    self.x1 = i + 2
+                    self.y1 = j + 2
+                    print("x = {}, y = {}".format(i, j))
+                    break
+            else:
+                continue
+            break
+
+        # 计算图标边长，高度=宽度
+        self.im_width = (self.x1 - self.x0) / 12
+
+        print("im_width = {}".format(self.im_width))
+
+        save_im(image1, 'all')
+
 
     def screenshot(self):
-        image = ImageGrab.grab(self.screen_left_and_right_point)
+        #image = ImageGrab.grab(self.screen_left_and_right_point)
+        image = ImageGrab.grab((self.x0, self.y0, self.x1, self.y1))
 
         save_im(image, 'image')
 
@@ -112,8 +180,8 @@ class GameAssist:
 
         print("图标数：", len(image_type_list))
 
-        for i in range(len(image_type_list)):
-            save_im(image_type_list[i], str(i).zfill(2))
+        #for i in range(len(image_type_list)):
+        #    save_im(image_type_list[i], str(i).zfill(2))
 
         self.im2num_arr = arr
         return arr
@@ -247,11 +315,11 @@ class GameAssist:
         # (299, 251, 768, 564)
         # 原理：左上角图标中点 + 偏移量
 
-        p1_x = int(self.screen_left_and_right_point[0] + (y1 - 1)*self.im_width + (self.im_width / 2))
-        p1_y = int(self.screen_left_and_right_point[1] + (x1 - 1)*self.im_width + (self.im_width / 2))
+        p1_x = int(self.x0 + (y1 - 1)*self.im_width + (self.im_width / 2))
+        p1_y = int(self.y0 + (x1 - 1)*self.im_width + (self.im_width / 2))
 
-        p2_x = int(self.screen_left_and_right_point[0] + (y2 - 1)*self.im_width + (self.im_width / 2))
-        p2_y = int(self.screen_left_and_right_point[1] + (x2 - 1)*self.im_width + (self.im_width / 2))
+        p2_x = int(self.x0 + (y2 - 1)*self.im_width + (self.im_width / 2))
+        p2_y = int(self.y0 + (x2 - 1)*self.im_width + (self.im_width / 2))
 
         time.sleep(0.2)
         self.mouse.click(p1_x, p1_y)
@@ -267,6 +335,8 @@ class GameAssist:
 
     # 程序入口、控制中心
     def start(self):
+
+        self.lockImage()
 
         # 1、先截取游戏区域大图，然后分切每个小图
         image_list = self.screenshot()
