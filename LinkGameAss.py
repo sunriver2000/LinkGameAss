@@ -35,7 +35,7 @@ class GameAssist:
             print("can't find window, name is : 【%s】" % wdname)
             exit()
 
-        #print("find window, name is : 【%s】" % wdname)
+        print("find window, name is : 【%s】" % wdname)
 
         # 窗口显示最前面
         win32gui.SetForegroundWindow(self.hwnd)
@@ -44,10 +44,10 @@ class GameAssist:
         self.im2num_arr = []
 
         # 截图的左上角坐标和右下角坐标
-        self.screen_left_and_right_point = (359, 288, 1256, 886)
+        self.screen_left_and_right_point = (360, 258, 1253, 853)
 
         # 小图标宽高
-        self.im_width = 74.75
+        self.im_width = 74.41
 
         self.mouse = PyMouse()
 
@@ -82,7 +82,6 @@ class GameAssist:
                 hash = "".join(map(lambda p: "1" if p > avg else "0", pixels))
 
                 f.write(str(hash)+'\n')
-                #print("hash1 = ", hash1)
 
                 #print("top = {}, left = {}".format(top, left))
                 #save_im(image_list[x][y], str(x).zfill(2)+str(y).zfill(2))
@@ -277,6 +276,7 @@ class GameAssist:
 
         print(self.im2num_arr)
 
+      
         # 3、遍历查找可以相连的坐标
         while not self.isAllZero(self.im2num_arr):
             for x1 in range(1, 9):
